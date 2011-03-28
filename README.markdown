@@ -10,7 +10,10 @@ build a more optimised CSS selector, stopping at the first parent with a specifi
 
 It also checks to see whether any part of the CSS path matches multiple elements, or if
 any element has no ID or CSS class, and adds specific "nth-child" pseudo-selectors
-where needed for full CSS paths, eg. "html body #content p img:nth-child(1)"
+where needed for full CSS paths.
+
+* Example full CSS path: `html body #main #content .left-col p img:nth-child(1)`
+* Example optimised CSS path: `#content .left-col p img`
 
 Hit escape key to cancel the inspector.
 
@@ -21,4 +24,4 @@ for that (so far, tested in FF4, Chrome, Safari, Opera 11.)
 
 No warranty; probably won't break the internet. Improvements and linkbacks welcome!
 
-- Joss
+Joss
