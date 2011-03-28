@@ -1,17 +1,16 @@
 /**
- * Simple JavaScript DOM Inspector v0.1
+ * Simple JavaScript DOM Inspector v0.1.1
  *
  * Highlights hovered elements with a 2px red outline, and then logs the element's full 
- * CSS selector path when clicked. You can also display the selected element's XPath, if
- * that's your kinda thing, or do anything with it in the callback function.
+ * CSS selector path when clicked. It could also display the selected element's XPath,
+ * or do pretty much anything with it in the callback function.
  * 
- * The CSS selector path-getting code tries to be as specific as possible, but could be
- * cut down to make an optimised selector. It works its way up the element's parentNodes
- * to build a full jQuery-style selector string with each element's ID and CSS class.
+ * The CSS selector path-building code tries to be as specific as possible, but can also
+ * build a more optimised CSS selector, stopping at the first parent with a specific ID.
  * 
  * It also checks to see whether any part of the CSS path matches multiple elements, or if
  * any element has no ID or CSS class, and adds specific "nth-child" pseudo-selectors
- * where needed, eg. "p:nth-of-type(3)".
+ * where needed for full CSS paths, eg. "html body #content p img:nth-child(1)"
  * 
  * Hit escape key to cancel the inspector.
  * 
@@ -21,6 +20,8 @@
  * for that (so far, tested in FF4, Chrome, Safari, Opera 11.)
  * 
  * No warranty; probably won't break the internet. Improvements and linkbacks welcome!
+ * 
+ * - Joss
  */
 
 (function(document) {
@@ -28,13 +29,19 @@
 		
 	/**
 	 * Get full CSS path of any element
-	 *
-	 * Returns a jQuery-style full CSS selector path, including IDs, classes and
-	 * ":nth-of-type()" child pseudo-selectors (when required):
+	 * 
+	 * Returns a jQuery-style CSS path, with IDs, classes and ':nth-child' pseudo-selectors.
+	 * 
+	 * Can either build a full CSS path, from 'html' all the way to ':nth-child()', or a
+	 * more optimised short path, stopping at the first parent with a specific ID,
+	 * eg. "#content .top p" instead of "html body #main #content .top p:nth-child(3)"
 	 */
 	function cssPath(el) {
-		var cssPathStr = '',
+		var fullPath = 1, // whether to go ultra-specific or not (more vague but still accurate CSS path)
+			cssPathStr = '',
+			testPath = '',
 			parents = [],
+			parentSelectors = [],
 			tagName,
 			cssId,
 			cssClass,
@@ -44,14 +51,14 @@
 			c,
 			tagSelector;
 		
-		// Build array of parent nodes:
+		// Build array of parent elements:
 		while ( el.parentNode ) {
 			parents.push( el );
 			el = el.parentNode;
 		}
 		
 		// Go down the list of parent nodes and build unique identifier for each:
-		for ( i = parents.length-1; i >= 0; i-- ) {
+		for ( i = parents.length-1; i >=0; i-- ) {
 			el = parents[i];
 			vagueMatch = 0;
 			
@@ -73,30 +80,39 @@
 				tagSelector = tagName;
 			}
 			
-			// Add this tag's CSS selector to CSS path string:
-			cssPathStr += ' '+tagSelector;
+			// Add this tag's CSS selector to the temporary CSS path string for testing:
+			testPath = testPath + ' ' + tagSelector;
 			
-			// If the complete/semi-complete cssPathStr matches multiple child nodes, add ":nth-child()" pseudo-selector to match:
-			// NB: Only do this if element has no #id and is not <html>/<body>; 
-			//     Always do this if element has no CSS class (vague match)
-			if ( !tagSelector.match(/(html|body)/) && !cssId && ( vagueMatch || $( cssPathStr ).length > 1 ) ) {
-				el = parents[i];
-				nth = 1;
+			// If doing full CSS path, and there's no ID, and this isn't the HTML/body tag...
+			if ( fullPath && !cssId && !tagSelector.match(/(html|body)/) ) {
 				
-				// Cycle through elements siblings to match same tags for ":nth-of-type" selector:
-				while ( el = el.previousElementSibling ) {
-					// Is this the same type of HTML tag as the selected element?:
-					if ( el.nodeName.toLowerCase() === tagName )
-						nth++;
+				// Check to see if this semi-complete CSS path matches multiple elements, add ":nth-child()" if needed:
+				// NB: also add ":nth-child()" if this tagSelector is vague (no CSS class):
+				if ( vagueMatch == 1 || $( testPath ).length > 1 ) {
+					
+					// Count element's previous siblings for ":nth-child" pseudo-selector:
+					for ( nth = 1, c = el; c.previousElementSibling; c = c.previousElementSibling, nth++ );
+					
+					// Append nth-child pseudo-selector to CSS path:
+					tagSelector += ":nth-child(" + nth + ")";
 				}
-
-				// Append nth-child pseudo-selector to CSS path:
-				cssPathStr += ":nth-of-type(" + nth + ")";
 			}
+			
+			// Add this full tag selector to the parentSelectors array:
+			parentSelectors.unshift( tagSelector );
 		}
 		
-		// Return full CSS path:
-		return cssPathStr.replace(' ', '');
+		// Build the CSS path string from the parent tag selectors:
+		for ( i = 0; i < parentSelectors.length; i++ ) {
+			cssPathStr = parentSelectors[i] + ' ' + cssPathStr;
+			
+			// Stop at first ID, if not doing full path:
+			if ( !fullPath && parentSelectors[i].match('#') )
+				break;
+		}
+		
+		// Return trimmed full CSS path:
+		return cssPathStr.replace(/^[ \t]+|[ \t]+$/, '');
 	}
 
 
