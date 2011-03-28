@@ -12,7 +12,7 @@ It also checks to see whether any part of the CSS path matches multiple elements
 any element has no ID or CSS class, and adds specific "nth-child" pseudo-selectors
 where needed for full CSS paths.
 
-* Example full CSS path: `html body #main #content .left-col p img:nth-child(1)`
+* Example full CSS path: `html body #main #content .left-col p:nth-child(1) img:nth-child(1)`
 * Example optimised CSS path: `#content .left-col p img`
 
 Hit escape key to cancel the inspector.
