@@ -1,23 +1,25 @@
 /**
- * Simple JavaScript DOM Inspector v0.1.1
+ * Simple JavaScript DOM Inspector v0.1.2
  *
- * Highlights hovered elements with a 2px red outline, and then logs the element's full 
- * CSS selector path when clicked. It could also display the selected element's XPath,
- * or do pretty much anything with it in the callback function.
+ * Highlights hovered elements with a 2px red outline, and then provides the hovered element
+ * on click to the callback function, which can do anything with it.
+ *
+ * By default, the inspector just console.logs a jQuery-style CSS selector path for the element.
  * 
- * The CSS selector path-building code tries to be as specific as possible, but can also
- * build a more optimised CSS selector, stopping at the first parent with a specific ID.
+ * The CSS path-building code works up the given element's parent nodes to create an optimised
+ * selector string, stopping at the first parent with an #id, but can also create an
+ * ultra-specific full CSS path, right down to 'html'.
  * 
- * It also checks to see whether any part of the CSS path matches multiple elements, or if
- * any element has no ID or CSS class, and adds specific "nth-child" pseudo-selectors
- * where needed for full CSS paths, eg. "html body #content p img:nth-child(1)"
+ * Optionally, it can check to see if any part of the CSS path matches multiple elements, or if
+ * any element in the CSS path has no #id or .class, and add specific ":nth-child()"
+ * pseudo-selector to match the element, eg. "html body #content p img:nth-child(1)"
  * 
  * Hit escape key to cancel the inspector.
  * 
  * NB: XPath code removed as it didn't really work very well, need to write from scratch.
  * 
- * Started putting in IE support, but won't work in IE just yet, check back next week
- * for that (so far, tested in FF4, Chrome, Safari, Opera 11.)
+ * Started putting in IE support, but won't work in IE just yet, check back next week for that
+ * (so far, tested in FF4, Chrome, Safari, Opera 11.)
  * 
  * No warranty; probably won't break the internet. Improvements and linkbacks welcome!
  * 
@@ -37,36 +39,34 @@
 	 * eg. "#content .top p" instead of "html body #main #content .top p:nth-child(3)"
 	 */
 	function cssPath(el) {
-		var fullPath = 1, // whether to go ultra-specific or not (more vague but still accurate CSS path)
-			cssPathStr = '',
-			testPath = '',
-			parents = [],
-			parentSelectors = [],
-			tagName,
-			cssId,
-			cssClass,
-			vagueMatch,
-			nth,
-			i,
-			c,
-			tagSelector;
+		var fullPath    = 0,  // Set to 1 to build ultra-specific full CSS-path, or 0 for optimised selector
+		    useNthChild = 0,  // Set to 1 to use ":nth-child()" pseudo-selectors to match the given element
+		    cssPathStr = '',
+		    testPath = '',
+		    parents = [],
+		    parentSelectors = [],
+		    tagName,
+		    cssId,
+		    cssClass,
+		    tagSelector,
+		    vagueMatch,
+		    nth,
+		    i,
+		    c;
 		
-		// Build array of parent elements:
-		while ( el.parentNode ) {
-			parents.push( el );
-			el = el.parentNode;
-		}
-		
-		// Go down the list of parent nodes and build unique identifier for each:
-		for ( i = parents.length-1; i >=0; i-- ) {
-			el = parents[i];
+		// Go up the list of parent nodes and build unique identifier for each:
+		while ( el ) {
 			vagueMatch = 0;
-			
-			// Get the node's tag name, ID and CSS classes:
+
+			// Get the node's HTML tag name in lowercase:
 			tagName = el.nodeName.toLowerCase();
-			cssId = ( el.id ) ? ( '#' + el.id ) : false;
-			cssClass = ( el.className ) ? ( '.' + el.className.replace(/ /g,".") ) : '';
 			
+			// Get node's ID attribute, adding a '#':
+			cssId = ( el.id ) ? ( '#' + el.id ) : false;
+			
+			// Get node's CSS classes, replacing spaces with '.':
+			cssClass = ( el.className ) ? ( '.' + el.className.replace(/\s+/g,".") ) : '';
+
 			// Build a unique identifier for this parent node:
 			if ( cssId ) {
 				// Matched by ID:
@@ -80,35 +80,37 @@
 				tagSelector = tagName;
 			}
 			
-			// Add this tag's CSS selector to the temporary CSS path string for testing:
-			testPath = testPath + ' ' + tagSelector;
+			// Add this full tag selector to the parentSelectors array:
+			parentSelectors.unshift( tagSelector )
+
+			// If doing short/optimised CSS paths and this element has an ID, stop here:
+			if ( cssId && !fullPath )
+				break;
 			
-			// If doing full CSS path, and there's no ID, and this isn't the HTML/body tag...
-			if ( fullPath && !cssId && !tagSelector.match(/(html|body)/) ) {
+			// Go up to the next parent node:
+			el = el.parentNode !== document ? el.parentNode : false;
+			
+		} // endwhile
+		
+		
+		// Build the CSS path string from the parent tag selectors:
+		for ( i = 0; i < parentSelectors.length; i++ ) {
+			cssPathStr += ' ' + parentSelectors[i];// + ' ' + cssPathStr;
+			
+			// If using ":nth-child()" selectors and this selector has no ID / isn't the html or body tag:
+			if ( useNthChild && !parentSelectors[i].match(/#/) && !parentSelectors[i].match(/^(html|body)$/) ) {
 				
-				// Check to see if this semi-complete CSS path matches multiple elements, add ":nth-child()" if needed:
-				// NB: also add ":nth-child()" if this tagSelector is vague (no CSS class):
-				if ( vagueMatch == 1 || $( testPath ).length > 1 ) {
+				// If there's no CSS class, or if the semi-complete CSS selector path matches multiple elements:
+				if ( !parentSelectors[i].match(/\./) || $( cssPathStr ).length > 1 ) {
 					
 					// Count element's previous siblings for ":nth-child" pseudo-selector:
 					for ( nth = 1, c = el; c.previousElementSibling; c = c.previousElementSibling, nth++ );
 					
-					// Append nth-child pseudo-selector to CSS path:
-					tagSelector += ":nth-child(" + nth + ")";
+					// Append ":nth-child()" to CSS path:
+					cssPathStr += ":nth-child(" + nth + ")";
 				}
 			}
 			
-			// Add this full tag selector to the parentSelectors array:
-			parentSelectors.unshift( tagSelector );
-		}
-		
-		// Build the CSS path string from the parent tag selectors:
-		for ( i = 0; i < parentSelectors.length; i++ ) {
-			cssPathStr = parentSelectors[i] + ' ' + cssPathStr;
-			
-			// Stop at first ID, if not doing full path:
-			if ( !fullPath && parentSelectors[i].match('#') )
-				break;
 		}
 		
 		// Return trimmed full CSS path:

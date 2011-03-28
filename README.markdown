@@ -1,5 +1,5 @@
-Simple JavaScript DOM Inspector v0.1.1
-====================================
+Simple JavaScript DOM Inspector v0.1.2
+======================================
 
 Highlights hovered elements with a 2px red outline, and then logs the element's full 
 CSS selector path when clicked. It could also display the selected element's XPath,
@@ -12,8 +12,9 @@ It also checks to see whether any part of the CSS path matches multiple elements
 any element has no ID or CSS class, and adds specific "nth-child" pseudo-selectors
 where needed for full CSS paths.
 
-* Example full CSS path: `html body #main #content .left-col p:nth-child(1) img:nth-child(1)`
-* Example optimised CSS path: `#content .left-col p img`
+* Example optimised CSS path: `#content .left p img`
+* Example full CSS path: `html body #main #content .left p img`
+* Example full CSS path with nth-child: `html body #main #content .left p:nth-child(3) img:nth-child(1)`
 
 Hit escape key to cancel the inspector.
 
